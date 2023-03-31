@@ -5,17 +5,20 @@ from constants import NUM_CLASSES, NUM_CHANNELS
 
 
 class CNN_COMB(nn.Module):
+    """CNN combining pretrained AlexNet, ResNet, and a custom model."""
+
     def __init__(self):
+        """Initialize AlexNet and ResNet with pre-trained values and do not update these."""
         super(CNN_COMB, self).__init__()
-        
+
         self.alex = models.alexnet(pretrained=True)
         for p in self.alex.parameters():
             p.requires_grad=False
-        
+
         self.resnet = models.resnet18(pretrained=True)
         for p in self.resnet.parameters():
             p.requires_grad=False
-        
+
         self.conv = nn.Sequential(
             nn.Conv2d(NUM_CHANNELS, 20, (5,5)),
             nn.ReLU(),
@@ -46,15 +49,15 @@ class CNN_COMB(nn.Module):
         )
 
     def forward(self, x):
-        
+        """Do the forward propagation."""
         out_alex = self.alex(x)
         out_resnet = self.resnet(x)
         out_conv = self.conv(x)
         out_conv = self.flatten(out_conv)
         out_conv = self.lin_conv(out_conv)
-        
+
         combined_output = torch.cat((out_alex, out_resnet, out_conv), dim=1)
-        
+
         out = self.lin(combined_output)
-        
+
         return out
