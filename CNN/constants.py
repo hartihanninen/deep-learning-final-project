@@ -18,7 +18,7 @@ TEST_IMAGES_DIR = DATA_DIR + 'image-test/images/'
 TRAIN_DIR = DATA_DIR + 'train/'
 DEV_DIR = DATA_DIR + 'dev/'
 TEST_DIR= DATA_DIR + 'test/'
-PRED_DIR = DATA_DIR + 'pred/'
+PRED_DIR = DATA_DIR + 'image-test/images/'
 # PRED_DIR = TEST_DIR  # For testing purposes
 
 #--- hyperparameters ---

@@ -50,7 +50,7 @@ def main(model: nn.Module):
     if NEW_SPLIT:
         split_data()
     mean, std = determine_mean_std(dict_labels)
-    train_loader, dev_loader, test_loader = transform_data(mean, std)
+    train_loader, dev_loader, test_loader = transform_data(mean, std, dict_labels)
     if PRETRAINED:
         model.load_state_dict(torch.load(PATH))
     else:
@@ -80,11 +80,11 @@ def main(model: nn.Module):
     test(model, loss_function, device, test_loader, dev_losses, dev_accuracies)
 
 
-def create_labels():
+def create_labels(file_names=IMAGE_FILE_NAMES, img_dir=IMAGES_DIR):
     """Create labels for images."""
     dict_labels = {}
-    for image_file_name in IMAGE_FILE_NAMES:  # Initiate label tensors
-        if os.path.isfile(IMAGES_DIR + image_file_name):
+    for image_file_name in file_names:  # Initiate label tensors
+        if os.path.isfile(img_dir + image_file_name):
             dict_labels[image_file_name] = torch.zeros(14)
     for i in range(len(ANNOTATIONS)):  # Fill label tensors with 1's if found in one of the annotations text files
         with open(ANNOTATIONS_DIR + ANNOTATIONS[i] + ".txt") as f:
@@ -241,7 +241,7 @@ def class_evaluation_by_annotation(pred: torch.Tensor, target: torch.Tensor):
     return eval_dict
 
 
-def transform_data(mean: float, std: float):
+def transform_data(mean: float, std: float, dict_labels):
     """Transform images to usable matrix representation."""
     train_transform = transforms.Compose([
                                         transforms.Grayscale(num_output_channels=3),
@@ -261,9 +261,9 @@ def transform_data(mean: float, std: float):
                                             mean=mean,
                                             std=std
                                             )])
-    train_set = myDataset(TRAIN_DIR, transform=train_transform)
-    test_set = myDataset(TEST_DIR, transform=train_transform)
-    dev_set = myDataset(DEV_DIR, transform=test_transform)
+    train_set = myDataset(dict_labels, TRAIN_DIR, transform=train_transform)
+    test_set = myDataset(dict_labels, TEST_DIR, transform=train_transform)
+    dev_set = myDataset(dict_labels, DEV_DIR, transform=test_transform)
     train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=BATCH_SIZE_TRAIN, shuffle=True)
     test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=BATCH_SIZE_TEST, shuffle=False)
     dev_loader = torch.utils.data.DataLoader(dataset=dev_set, shuffle=False)

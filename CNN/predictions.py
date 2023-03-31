@@ -20,6 +20,30 @@ import cnn
 from constants import *
 import pandas as pd
 
+class myDataset(torch.utils.data.Dataset):
+    """Enable creating train, test, and dev test datasets for PyTorch."""
+
+    def __init__(self, root_dir=TEST_IMAGES_DIR, transform=None):
+        """Define the transformation and imagepaths for the dataset."""
+        self.transform = transform
+        self.root_dir = root_dir
+        self.images = [root_dir + img for img in os.listdir(root_dir)]
+
+    def __len__(self):
+        """Calculate the number of images."""
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        """Get the image."""
+        img_path = self.images[idx]
+        img = Image.open(img_path)
+
+        if self.transform:
+            img = self.transform(img)
+
+        return img
+
+
 def main(model: nn.Module):
     """Start the CNN model."""
     if IMAGENET:
@@ -37,6 +61,7 @@ def main(model: nn.Module):
     create_predictions(model, device, pred_loader)
 
 
+# def transform_data(mean: float, std: float, dict_labels):
 def transform_data(mean: float, std: float):
     """Transform images to usable matrix representation."""
     transform = transforms.Compose([
@@ -48,8 +73,9 @@ def transform_data(mean: float, std: float):
                                         mean=mean,
                                         std=std
                                         )])
-    pred_set = cnn.myDataset(PRED_DIR, transform=transform)
-    pred_loader = torch.utils.data.DataLoader(dataset=pred_set, shuffle=False)
+                                
+    pred_set = myDataset(root_dir=TEST_IMAGES_DIR, transform=transform)
+    pred_loader = torch.utils.data.DataLoader(dataset=pred_set, batch_size=100, shuffle=False)
     return pred_loader
 
 
@@ -57,18 +83,22 @@ def create_predictions(model: nn.Module, device, pred_loader):
     """Create a .tsv file for prections based on a specified model."""
     pred_file = DATA_DIR + 'pred.tsv'
     model.eval()
-    image_names = [img[2:] for img in TEST_IMAGE_FILE_NAMES]
+    image_names = [img[2:-4] for img in TEST_IMAGE_FILE_NAMES]
     image_names.sort()  # because os.listdir documentation says it can be in arbitary order, for dataloader this is not arbitary
+    pred_array = []
     with torch.no_grad():
-        for _, (data, target) in enumerate(pred_loader):
-            data, target = data.to(device), target.to(device)
+        for _, data in enumerate(pred_loader):
+            data = data.to(device)
             pred = model(data)
-            pred = torch.sigmoid(pred).map(lambda x: (x+0.5)//1)
-    df = pd.DataFrame(pred.numpy(), columns=ANNOTATIONS)
+            pred = torch.round(torch.sigmoid(pred))
+            if len(pred_array) == 0:
+                pred_array = pred.numpy()
+            else:
+                pred_array = np.concatenate((pred_array, pred.numpy()))
+    df = pd.DataFrame(pred_array, columns=ANNOTATIONS)
     df.insert(0, 'Filename', image_names)
     df.to_csv(pred_file, sep="\t", index=False)
-    # print(df)
 
 
 if __name__ == "__main__":
-    main(cnn_models.CNN_COMB)
+    main(cnn_models.CNN_COMB())
