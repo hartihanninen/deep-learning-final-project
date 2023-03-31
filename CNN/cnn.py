@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import math
 import cnn_models
 from constants import *
+import json
 
 
 class myDataset(torch.utils.data.Dataset):
@@ -78,6 +79,8 @@ def main(model: nn.Module):
         train(model, optimizer, loss_function, device, train_loader, epoch, stop_early)
         dev(model, loss_function, device, dev_loader, epoch, dev_loss, dev_losses, dev_accuracies, stop_early)
     test(model, loss_function, device, test_loader, dev_losses, dev_accuracies)
+    if SAVE_MODEL:
+        save_model_dict(model)
 
 
 def create_labels(file_names=IMAGE_FILE_NAMES, img_dir=IMAGES_DIR):
@@ -122,11 +125,11 @@ def determine_mean_std(dict_labels):
                                                 transforms.ToTensor()])
 
         #Splitting these was the easiest due to memory allocation problem, you could only used IMAGES_DIR if this is not a problem
-        train_mean_set = myDataset(TRAIN_DIR, dict_labels=dict_labels, transform=mean_transform)
+        train_mean_set = myDataset(dict_labels=dict_labels, root_dir=TRAIN_DIR, transform=mean_transform)
         train_data_loader = torch.utils.data.DataLoader(dataset=train_mean_set, batch_size=100, shuffle=False, num_workers=0)
-        dev_mean_set = myDataset(DEV_DIR, dict_labels=dict_labels, transform=mean_transform)
+        dev_mean_set = myDataset(dict_labels=dict_labels, root_dir=DEV_DIR, transform=mean_transform)
         dev_data_loader = torch.utils.data.DataLoader(dataset=dev_mean_set, batch_size=100, shuffle=False, num_workers=0)
-        test_mean_set = myDataset(TEST_DIR, dict_labels=dict_labels, transform=mean_transform)
+        test_mean_set = myDataset(dict_labels=dict_labels, root_dir=TEST_DIR, transform=mean_transform)
         test_data_loader = torch.utils.data.DataLoader(dataset=test_mean_set, batch_size=100, shuffle=False, num_workers=0)
 
         mean_train, std_train = calc_mean_std(train_data_loader)
@@ -243,22 +246,23 @@ def class_evaluation_by_annotation(pred: torch.Tensor, target: torch.Tensor):
 
 def transform_data(mean: float, std: float, dict_labels):
     """Transform images to usable matrix representation."""
-    train_transform = transforms.Compose([
+    train_transform = transforms.Compose([            
                                         transforms.Grayscale(num_output_channels=3),
-                                        transforms.Resize(256),
-                                        transforms.CenterCrop(224),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize(
-                                        mean=mean,
+                                        transforms.Resize(256),                    
+                                        transforms.CenterCrop(224),                
+                                        transforms.ToTensor(),                     
+                                        transforms.Normalize(                      
+                                        mean=mean,                
                                         std=std
                                         )])
-    test_transform = transforms.Compose([
+
+    test_transform = transforms.Compose([            
                                             transforms.Grayscale(num_output_channels=3),
-                                            transforms.Resize(256),
-                                            transforms.CenterCrop(224),
-                                            transforms.ToTensor(),
-                                            transforms.Normalize(
-                                            mean=mean,
+                                            transforms.Resize(256),                    
+                                            transforms.CenterCrop(224),                
+                                            transforms.ToTensor(),                     
+                                            transforms.Normalize(                      
+                                            mean=mean,                
                                             std=std
                                             )])
     train_set = myDataset(dict_labels, TRAIN_DIR, transform=train_transform)
@@ -424,6 +428,7 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                         "false_negative": 0,
                         "negative": 0,
                         "positive": 0}
+    evaluation_by_annotation = {}
     for a in range(len(ANNOTATIONS)):
         evaluation_by_annotation[ANNOTATIONS[a]] = {"true_positive": 0,
                                                     "false_positive": 0,
@@ -432,7 +437,6 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                                                     "negative": 0,
                                                     "positive": 0}
 
-    evaluation_by_annotation = {}
     model.eval()
     with open(test_file, 'a') as f:
         with torch.no_grad():
@@ -461,7 +465,7 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                 evaluation["negative"] += evaluations["negative"]
 
                 evaluations_by_annotation = class_evaluation_by_annotation(pred, target)
-                f.write(evaluation_by_annotation)
+                f.write(json.dumps(evaluation_by_annotation))
                 f.write('\n')
 
                 for a in range(len(ANNOTATIONS)):
@@ -493,9 +497,34 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                 f.write('\n')
                 f.write("------------------------")
                 f.write('\n')
-        f.write(dev_losses)
+        f.write(str(dev_losses))
         f.write('\n')
-        f.write(dev_accuracies)
+        f.write(str(dev_accuracies))
+        f.write('\n')
+        for i in evaluation_by_annotation:
+            f.write("------------------------")
+            f.write('\n')
+            f.write(i + ":")
+            f.write('\n')
+            f.write("")
+            f.write('\n')
+            f.write("positive: " + str(evaluation_by_annotation[i]["positive"]))
+            f.write('\n')
+            f.write("true_positive: " + str(evaluation_by_annotation[i]["true_positive"]))
+            f.write('\n')
+            f.write("false_negative: " + str(evaluation_by_annotation[i]["false_negative"]))
+            f.write('\n')
+            f.write('\n')
+            f.write("negative: " + str(evaluation_by_annotation[i]["negative"]))
+            f.write('\n')
+            f.write("true_negative: " + str(evaluation_by_annotation[i]["true_negative"]))
+            f.write('\n')
+            f.write("false_positive: " + str(evaluation_by_annotation[i]["false_positive"]))
+
+
+def save_model_dict(model: nn.Module):
+    """Save the models state dictionary."""
+    torch.save(model.state_dict(), PATH)
 
 if __name__ == "__main__":
-    main(cnn_models.CNN_COMB)
+    main(cnn_models.CNN_COMB_BASE())

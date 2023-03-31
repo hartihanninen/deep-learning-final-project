@@ -144,3 +144,71 @@ class CNN_BASE(nn.Module):
         x = self.flatten(x)
         x = self.lin(x)
         return x
+
+
+class CNN_COMB_BASE(nn.Module):
+    """CNN combining pretrained AlexNet, ResNet, and a custom model."""
+
+    def __init__(self, num_classes=NUM_CLASSES):
+        """Initialize AlexNet and ResNet with pre-trained values and do not update these."""
+        super(CNN_COMB_BASE, self).__init__()
+
+        self.alex = models.alexnet(weights=models.AlexNet_Weights.DEFAULT)
+        for p in self.alex.parameters():
+            p.requires_grad=False
+
+        self.resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        for p in self.resnet.parameters():
+            p.requires_grad=False
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(NUM_CHANNELS, 32, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2,2),
+
+            nn.Conv2d(64, 128, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2,2),
+
+            nn.Conv2d(128, 256, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.Conv2d(256,256, kernel_size = 3, padding = 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2,2)
+        )
+        self.flatten = nn.Flatten()
+        self.lin_conv = nn.Sequential(
+            nn.Linear(200704, 1000),
+            # nn.Linear(65536, 1000),
+            nn.ReLU()
+        )
+
+        self.lin = nn.Sequential(
+            nn.Dropout(p=0.15),
+            nn.Linear(3000, 1000),
+            nn.ReLU(),
+            nn.Linear(1000, 500),
+            nn.ReLU(),
+            nn.Dropout(p=0.15),
+            nn.Linear(500, 250),
+            nn.ReLU(),
+            nn.Linear(250, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        """Do the forward propagation."""
+        out_alex = self.alex(x)
+        out_resnet = self.resnet(x)
+        out_conv = self.conv(x)
+        out_conv = self.flatten(out_conv)
+        out_conv = self.lin_conv(out_conv)
+
+        combined_output = torch.cat((out_alex, out_resnet, out_conv), dim=1)
+
+        out = self.lin(combined_output)
+
+        return out

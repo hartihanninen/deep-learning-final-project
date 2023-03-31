@@ -61,7 +61,6 @@ def main(model: nn.Module):
     create_predictions(model, device, pred_loader)
 
 
-# def transform_data(mean: float, std: float, dict_labels):
 def transform_data(mean: float, std: float):
     """Transform images to usable matrix representation."""
     transform = transforms.Compose([

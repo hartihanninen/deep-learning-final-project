@@ -8,7 +8,7 @@ if h:
     DATA_DIR = '/Users/hartih/Documents/School/Deep learning/Final_project/dl2021-image-corpus-proj/'
 else:
     DATA_DIR = '../../dl2021-image-corpus-proj/'
-FILE_NAME = 'cnn_comb.pt'
+FILE_NAME = 'cnn_comb_base.pt'
 PATH = DATA_DIR + FILE_NAME
 ANNOTATIONS_DIR = DATA_DIR + 'annotations/'
 IMAGES_DIR = DATA_DIR + 'images/'
@@ -36,9 +36,10 @@ NUM_CHANNELS = 3
 #--- Other ---
 IMAGENET = False
 NEW_SPLIT = False
-PRETRAINED = False
+PRETRAINED = False  # False means we are not loading in a state_dict BUT we are allowed to use ResNet etc.
 IMAGE_FILE_NAMES = os.listdir(IMAGES_DIR)
 TEST_IMAGE_FILE_NAMES = os.listdir(TEST_IMAGES_DIR)
+SAVE_MODEL = True
 ANNOTATIONS = ["baby",
                 "bird",
                 "car",
