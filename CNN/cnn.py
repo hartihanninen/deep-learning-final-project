@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import cnn_models
-
+from constants import *
 
 class myDataset(torch.utils.data.Dataset):
     """Enable creating train, test, and dev test datasets for PyTorch."""
@@ -38,15 +38,28 @@ class myDataset(torch.utils.data.Dataset):
         return img, dict_labels[img_path.split("/")[-1]]
 
 
-def main(h: bool, epochs: int, new_split: bool, imageNet: bool, pretrained: bool, model: nn.Module, file_name: str):
+def main(model: nn.Module):
     """Start the CNN model."""
-    global_vars(h, epochs, file_name)
-    create_labels()
-    if new_split:
+    annotations = ["baby",
+                "bird",
+                "car",
+                "clouds",
+                "dog",
+                "female",
+                "flower",
+                "male",
+                "night",
+                "people",
+                "portrait",
+                "river",
+                "sea",
+                "tree"]
+    create_labels(annotations)
+    if NEW_SPLIT:
         split_data()
-    mean, std = determine_mean_std(imageNet)
+    mean, std = determine_mean_std()
     train_loader, dev_loader, test_loader = transform_data(mean, std)
-    if pretrained:
+    if PRETRAINED:
         model.load_state_dict(torch.load(PATH))
     else:
         train_dev_file = DATA_DIR + 'train.txt'
@@ -70,74 +83,12 @@ def main(h: bool, epochs: int, new_split: bool, imageNet: bool, pretrained: bool
     for epoch in range(N_EPOCHS):
         if stop_early:
             break
-        train(model, optimizer, loss_function, device, train_loader, epoch, stop_early)
-        dev(model, loss_function, device, dev_loader, epoch, dev_loss, dev_losses, dev_accuracies, stop_early)
-    test(model, loss_function, device, test_loader)
+        train(model, optimizer, loss_function, device, train_loader, epoch, stop_early, annotations)
+        dev(model, loss_function, device, dev_loader, epoch, dev_loss, dev_losses, dev_accuracies, stop_early, annotations)
+    test(model, loss_function, device, test_loader, annotations)
 
 
-
-
-def global_vars(h: bool, epochs: int, file_name: str):
-    """Define global variables."""
-    global DATA_DIR 
-    if h:
-        DATA_DIR = '/Users/hartih/Documents/School/Deep learning/Final_project/dl2021-image-corpus-proj/'
-    else:
-        DATA_DIR = '../../dl2021-image-corpus-proj/'
-    global PATH
-    PATH = DATA_DIR + file_name
-    global ANNOTATIONS_DIR 
-    ANNOTATIONS_DIR = DATA_DIR + 'annotations/'
-    global IMAGES_DIR 
-    IMAGES_DIR = DATA_DIR + 'images/'
-
-    # New fodlers for train, test, and dev sets
-    global TRAIN_DIR 
-    TRAIN_DIR = DATA_DIR + 'train/'
-    global DEV_DIR 
-    DEV_DIR = DATA_DIR + 'dev/'
-    global TEST_DIR 
-    TEST_DIR= DATA_DIR + 'test/'
-
-    #--- hyperparameters ---
-    global N_EPOCHS
-    N_EPOCHS = epochs
-    global BATCH_SIZE_TRAIN
-    BATCH_SIZE_TRAIN = 100
-    global BATCH_SIZE_TEST
-    BATCH_SIZE_TEST = 100
-    global LR
-    LR = 0.001
-    global WEIGHT_DECAY
-    WEIGHT_DECAY = 0.00
-    global MOMENTUM
-    MOMENTUM = 0.1
-
-
-    #--- fixed constants ---
-    global NUM_CLASSES
-    NUM_CLASSES = 14
-    global NUM_CHANNELS
-    NUM_CHANNELS = 3
-
-    global annotations
-    annotations = ["baby",
-                "bird",
-                "car",
-                "clouds",
-                "dog",
-                "female",
-                "flower",
-                "male",
-                "night",
-                "people",
-                "portrait",
-                "river",
-                "sea",
-                "tree"]
-
-
-def create_labels():
+def create_labels(annotations: list[str]):
     """Create labels for images."""
     global image_file_names
     image_file_names = os.listdir(IMAGES_DIR)
@@ -169,9 +120,9 @@ def split_data():
                 shutil.copyfile(IMAGES_DIR + image_file_name, TEST_DIR + image_file_name)
 
 
-def determine_mean_std(imageNet: bool = False):
+def determine_mean_std():
     """Choose between imageNet's values and calculating mean and std from our imageset."""
-    if imageNet:
+    if IMAGENET:
         mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]  # Imagenet mean and std
     else:
         mean_transform = transforms.Compose([
@@ -205,7 +156,7 @@ def calc_mean_std(loader):
     return mean/(batch_num+1), std/(batch_num+1)
 
 
-def calc_correct(pred: torch.Tensor, target: torch.Tensor):
+def calc_correct(pred: torch.Tensor, target: torch.Tensor, annotations: list[str]):
     """Calculate the amount of correctly predicted as well as total predictions done."""
     pred = torch.sigmoid(pred)  # Since our neural network does not apply sigmoid
     correct_dict = {'tot': [0,0]}  # First number in value is correct ones, the second one is total amount
@@ -267,7 +218,7 @@ def class_evaluation(pred: torch.Tensor, target: torch.Tensor):
     return result
 
 
-def class_evaluation_by_annotation(pred: torch.Tensor, target: torch.Tensor):
+def class_evaluation_by_annotation(pred: torch.Tensor, target: torch.Tensor, annotations: list[str]):
     """Calculate the true/false positive/negative values for each annotation."""
     pred = torch.sigmoid(pred)
     # Initiate vslues for every annotation
@@ -328,7 +279,7 @@ def transform_data(mean: float, std: float):
     return train_loader, dev_loader, test_loader
 
 
-def train(model: nn.Module, optimizer, loss_function, device, train_loader, epoch: int, stop_early: bool):
+def train(model: nn.Module, optimizer, loss_function, device, train_loader, epoch: int, stop_early: bool, annotations: list[str]):
     """Train the model"""
     train_dev_file = DATA_DIR + 'train.txt'
     model.train()
@@ -356,7 +307,7 @@ def train(model: nn.Module, optimizer, loss_function, device, train_loader, epoc
 
             total += len(data)
             train_loss += loss.item()
-            new_correct = calc_correct(pred, target)
+            new_correct = calc_correct(pred, target, annotations)
             for annotation in annotations:
                 new = new_correct[annotation]
                 train_correct[annotation][0] += new[0]
@@ -397,7 +348,7 @@ def train(model: nn.Module, optimizer, loss_function, device, train_loader, epoc
             f.write('\n')
 
 
-def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_loss: float, dev_losses: list[float], dev_accuracies: float, stop_early: bool):
+def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_loss: float, dev_losses: list[float], dev_accuracies: float, stop_early: bool, annotations: list[str]):
     """Use dev set to check how model is performing."""
     train_dev_file = DATA_DIR + 'train.txt'
     model.eval()
@@ -421,7 +372,7 @@ def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_los
                 loss = loss_function(pred, target)
 
                 cur_dev_loss += loss.item()
-                new_dev_correct = calc_correct(pred, target)
+                new_dev_correct = calc_correct(pred, target, annotations)
                 for annotation in annotations:
                     new = new_dev_correct[annotation]
                     dev_correct[annotation][0] += new[0]
@@ -469,7 +420,7 @@ def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_los
             f.write('\n')
 
 
-def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[float], dev_accuracies: list[float]):
+def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[float], dev_accuracies: list[float], annotations: list[str]):
     """Calculate the losses and accuracies using test dataset."""
     test_file = DATA_DIR + 'test.txt'
     test_loss = 0
@@ -500,7 +451,7 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                 loss = loss_function(pred, target)
 
                 test_loss += loss.item()
-                new_test_correct = calc_correct(pred, target)
+                new_test_correct = calc_correct(pred, target, annotations)
                 for annotation in annotations:
                     new = new_test_correct[annotation]
                     test_correct[annotation][0] += new[0]
@@ -518,7 +469,7 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                 evaluation["positive"] += evaluations["positive"]
                 evaluation["negative"] += evaluations["negative"]
                 
-                evaluations_by_annotation = class_evaluation_by_annotation(pred, target)
+                evaluations_by_annotation = class_evaluation_by_annotation(pred, target, annotations)
                 print(evaluation_by_annotation)
                 
                 for a in range(len(annotations)):
@@ -555,4 +506,4 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
         f.write(dev_accuracies)  
 
 if __name__ == "__main__":
-    main(False, 5, False, False, True, cnn_models.CNN_COMB(14, 3), 'cnn_comb.pt')
+    main(cnn_models.CNN_COMB)

@@ -1,10 +1,11 @@
 import torch.nn as nn
 from torchvision import transforms, datasets, models
 import torch
+from constants import NUM_CLASSES, NUM_CHANNELS
 
 
 class CNN_COMB(nn.Module):
-    def __init__(self, num_classes, num_channels):
+    def __init__(self):
         super(CNN_COMB, self).__init__()
         
         self.alex = models.alexnet(pretrained=True)
@@ -16,7 +17,7 @@ class CNN_COMB(nn.Module):
             p.requires_grad=False
         
         self.conv = nn.Sequential(
-            nn.Conv2d(num_channels, 20, (5,5)),
+            nn.Conv2d(NUM_CHANNELS, 20, (5,5)),
             nn.ReLU(),
             nn.MaxPool2d((2,2), stride = (2,2)),
 
@@ -41,7 +42,7 @@ class CNN_COMB(nn.Module):
             nn.ReLU(),
             nn.Linear(500, 250),
             nn.ReLU(),
-            nn.Linear(250, num_classes)
+            nn.Linear(250, NUM_CLASSES)
         )
 
     def forward(self, x):
