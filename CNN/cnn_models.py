@@ -210,3 +210,37 @@ class CNN_COMB_BASE(nn.Module):
         out = self.lin(combined_output)
 
         return out
+    
+
+class CNN_PRETRAINED(nn.Module):
+    def __init__(self, num_classes=NUM_CLASSES):
+        super(CNN_PRETRAINED, self).__init__()
+        
+        self.alex = models.alexnet(pretrained=True)
+        for p in self.alex.parameters():
+            p.requires_grad=False
+        
+        self.resnet = models.resnet101(pretrained=True)
+        for p in self.resnet.parameters():
+            p.requires_grad=False
+        
+        self.lin = nn.Sequential(
+            nn.Linear(2000, 1000),
+            nn.ReLU(),
+            nn.Linear(1000, 500),
+            nn.ReLU(),
+            nn.Linear(500, 250),
+            nn.ReLU(),
+            nn.Linear(250, num_classes)
+        )
+
+    def forward(self, x):
+        
+        out_alex = self.alex(x)
+        out_resnet = self.resnet(x)
+        
+        combined_pretrained_output = torch.cat((out_alex, out_resnet), dim=1)
+        
+        out = self.lin(combined_pretrained_output)
+        
+        return out
