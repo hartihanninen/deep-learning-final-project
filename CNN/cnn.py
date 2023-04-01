@@ -246,10 +246,27 @@ def class_evaluation_by_annotation(pred: torch.Tensor, target: torch.Tensor):
 
 def transform_data(mean: float, std: float, dict_labels):
     """Transform images to usable matrix representation."""
+    # train_transform = transforms.Compose([            
+    #                                     transforms.Grayscale(num_output_channels=3),
+    #                                     transforms.Resize(256),                    
+    #                                     transforms.CenterCrop(224),                
+    #                                     transforms.ToTensor(),                     
+    #                                     transforms.Normalize(                      
+    #                                     mean=mean,                
+    #                                     std=std
+    #                                     )])
+
+    # test_transform = transforms.Compose([            
+    #                                         transforms.Grayscale(num_output_channels=3),
+    #                                         transforms.Resize(256),                    
+    #                                         transforms.CenterCrop(224),                
+    #                                         transforms.ToTensor(),                     
+    #                                         transforms.Normalize(                      
+    #                                         mean=mean,                
+    #                                         std=std
+    #                                         )])
     train_transform = transforms.Compose([            
-                                        transforms.Grayscale(num_output_channels=3),
-                                        transforms.Resize(256),                    
-                                        transforms.CenterCrop(224),                
+                                        transforms.Grayscale(num_output_channels=3),              
                                         transforms.ToTensor(),                     
                                         transforms.Normalize(                      
                                         mean=mean,                
@@ -257,9 +274,7 @@ def transform_data(mean: float, std: float, dict_labels):
                                         )])
 
     test_transform = transforms.Compose([            
-                                            transforms.Grayscale(num_output_channels=3),
-                                            transforms.Resize(256),                    
-                                            transforms.CenterCrop(224),                
+                                            transforms.Grayscale(num_output_channels=3),                
                                             transforms.ToTensor(),                     
                                             transforms.Normalize(                      
                                             mean=mean,                
@@ -276,22 +291,23 @@ def transform_data(mean: float, std: float, dict_labels):
 
 def train(model: nn.Module, optimizer, loss_function, device, train_loader, epoch: int, stop_early: bool):
     """Train the model."""
+    print(epoch)
     train_dev_file = DATA_DIR + 'train.txt'
     model.train()
-    with open(train_dev_file, 'a') as f:
-        train_loss = 0
-        train_correct = {annotation: [0,0] for annotation in ANNOTATIONS}
-        train_correct['tot'] = [0,0]
-        train_correct['tot_strict'] = [0,0]
-        evaluation = {"true_positive": 0,
-                        "false_positive": 0,
-                        "true_negative": 0,
-                        "false_negative": 0,
-                        "negative": 0,
-                        "positive": 0}
-        total = 0
-        model.train()
-        for batch_num, (data, target) in enumerate(train_loader):
+    train_loss = 0
+    train_correct = {annotation: [0,0] for annotation in ANNOTATIONS}
+    train_correct['tot'] = [0,0]
+    train_correct['tot_strict'] = [0,0]
+    evaluation = {"true_positive": 0,
+                    "false_positive": 0,
+                    "true_negative": 0,
+                    "false_negative": 0,
+                    "negative": 0,
+                    "positive": 0}
+    total = 0
+    model.train()
+    for batch_num, (data, target) in enumerate(train_loader):
+        with open(train_dev_file, 'a') as f:
             data, target = data.to(device), target.to(device)
             pred = model(data)
             loss = loss_function(pred, target)
@@ -347,51 +363,51 @@ def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_los
     """Use dev set to check how model is performing."""
     train_dev_file = DATA_DIR + 'train.txt'
     model.eval()
-    with open(train_dev_file, 'a') as f:
-        cur_dev_loss = 0
-        dev_correct = {annotation: [0,0] for annotation in ANNOTATIONS}
-        dev_correct['tot'] = [0,0]
-        dev_correct['tot_strict'] = [0,0]
-        evaluation = {"true_positive": 0,
-                        "false_positive": 0,
-                        "true_negative": 0,
-                        "false_negative": 0,
-                        "negative": 0,
-                        "positive": 0}
-        total = 0
-        model.eval()
-        with torch.no_grad():
-            for batch_num, (data, target) in enumerate(dev_loader):
-                data, target = data.to(device), target.to(device)
-                pred = model(data)
-                loss = loss_function(pred, target)
+    cur_dev_loss = 0
+    dev_correct = {annotation: [0,0] for annotation in ANNOTATIONS}
+    dev_correct['tot'] = [0,0]
+    dev_correct['tot_strict'] = [0,0]
+    evaluation = {"true_positive": 0,
+                    "false_positive": 0,
+                    "true_negative": 0,
+                    "false_negative": 0,
+                    "negative": 0,
+                    "positive": 0}
+    total = 0
+    model.eval()
+    with torch.no_grad():
+        for batch_num, (data, target) in enumerate(dev_loader):
+            data, target = data.to(device), target.to(device)
+            pred = model(data)
+            loss = loss_function(pred, target)
 
-                cur_dev_loss += loss.item()
-                new_dev_correct = calc_correct(pred, target)
-                for annotation in ANNOTATIONS:
-                    new = new_dev_correct[annotation]
-                    dev_correct[annotation][0] += new[0]
-                    dev_correct[annotation][1] += new[1]
-                dev_correct['tot'][0] += new_dev_correct['tot'][0]
-                dev_correct['tot'][1] += new_dev_correct['tot'][1]
-                dev_correct['tot_strict'][0] += new_dev_correct['tot_strict'][0]
-                dev_correct['tot_strict'][1] += new_dev_correct['tot_strict'][1]
+            cur_dev_loss += loss.item()
+            new_dev_correct = calc_correct(pred, target)
+            for annotation in ANNOTATIONS:
+                new = new_dev_correct[annotation]
+                dev_correct[annotation][0] += new[0]
+                dev_correct[annotation][1] += new[1]
+            dev_correct['tot'][0] += new_dev_correct['tot'][0]
+            dev_correct['tot'][1] += new_dev_correct['tot'][1]
+            dev_correct['tot_strict'][0] += new_dev_correct['tot_strict'][0]
+            dev_correct['tot_strict'][1] += new_dev_correct['tot_strict'][1]
 
-                evaluations = class_evaluation(pred, target)
-                evaluation["true_positive"] += evaluations["true_positive"]
-                evaluation["false_positive"] += evaluations["false_positive"]
-                evaluation["true_negative"] += evaluations["true_negative"]
-                evaluation["false_negative"] += evaluations["false_negative"]
-                evaluation["positive"] += evaluations["positive"]
-                evaluation["negative"] += evaluations["negative"]
+            evaluations = class_evaluation(pred, target)
+            evaluation["true_positive"] += evaluations["true_positive"]
+            evaluation["false_positive"] += evaluations["false_positive"]
+            evaluation["true_negative"] += evaluations["true_negative"]
+            evaluation["false_negative"] += evaluations["false_negative"]
+            evaluation["positive"] += evaluations["positive"]
+            evaluation["negative"] += evaluations["negative"]
 
-            current_loss = cur_dev_loss / (len(dev_loader) + 1)
-            dev_losses.append(current_loss)
-            current_accuracy = {annotation: 100. * dev_correct[annotation][0] / dev_correct[annotation][1]  for annotation in ANNOTATIONS}  # Accuracies for all classes
-            current_accuracy['tot'] = 100. * dev_correct['tot'][0] / dev_correct['tot'][1]
-            current_accuracy['tot_strict'] = 100. * dev_correct['tot_strict'][0] / dev_correct['tot_strict'][1]
-            dev_accuracies.append(current_accuracy)
+        current_loss = cur_dev_loss / (len(dev_loader) + 1)
+        dev_losses.append(current_loss)
+        current_accuracy = {annotation: 100. * dev_correct[annotation][0] / dev_correct[annotation][1]  for annotation in ANNOTATIONS}  # Accuracies for all classes
+        current_accuracy['tot'] = 100. * dev_correct['tot'][0] / dev_correct['tot'][1]
+        current_accuracy['tot_strict'] = 100. * dev_correct['tot_strict'][0] / dev_correct['tot_strict'][1]
+        dev_accuracies.append(current_accuracy)
 
+        with open(train_dev_file, 'a') as f:
             f.write("------------------------")
             f.write('\n')
             f.write('Evaluating: Batch %d/%d: Loss: %.4f | Dev Acc: %.3f%% (%d/%d) | Strict Acc: %.3f%% (%d/%d)' %
@@ -400,16 +416,16 @@ def dev(model: nn.Module, loss_function, device, dev_loader, epoch: int, dev_los
             100. * dev_correct['tot_strict'][0] / dev_correct['tot_strict'][1], dev_correct['tot_strict'][0], dev_correct['tot_strict'][1]))
             f.write('\n')
             f.write('True positive rate: %.3f%% (%d/%d)' %
-              (100. * evaluation["true_positive"] / evaluation["positive"], evaluation["true_positive"], evaluation["positive"]) )
+                (100. * evaluation["true_positive"] / evaluation["positive"], evaluation["true_positive"], evaluation["positive"]) )
             f.write('\n')
             f.write('False negative rate: %.3f%% (%d/%d)' %
-              (100. * evaluation["false_negative"] / evaluation["positive"], evaluation["false_negative"], evaluation["positive"]) )
+                (100. * evaluation["false_negative"] / evaluation["positive"], evaluation["false_negative"], evaluation["positive"]) )
             f.write('\n')
             f.write('True negative rate: %.3f%% (%d/%d)' %
-              (100. * evaluation["true_negative"] / evaluation["negative"], evaluation["true_negative"], evaluation["negative"]) )
+                (100. * evaluation["true_negative"] / evaluation["negative"], evaluation["true_negative"], evaluation["negative"]) )
             f.write('\n')
             f.write('False positive rate: %.3f%% (%d/%d)' %
-              (100. * evaluation["false_positive"] / evaluation["negative"], evaluation["false_positive"], evaluation["negative"]) )
+                (100. * evaluation["false_positive"] / evaluation["negative"], evaluation["false_positive"], evaluation["negative"]) )
             f.write('\n')
             f.write("------------------------")
             f.write('\n')
@@ -438,33 +454,33 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                                                     "positive": 0}
 
     model.eval()
-    with open(test_file, 'a') as f:
-        with torch.no_grad():
-            for batch_num, (data, target) in enumerate(test_loader):
-                data, target = data.to(device), target.to(device)
-                pred = model(data)
-                loss = loss_function(pred, target)
+    with torch.no_grad():
+        for batch_num, (data, target) in enumerate(test_loader):
+            data, target = data.to(device), target.to(device)
+            pred = model(data)
+            loss = loss_function(pred, target)
 
-                test_loss += loss.item()
-                new_test_correct = calc_correct(pred, target)
-                for annotation in ANNOTATIONS:
-                    new = new_test_correct[annotation]
-                    test_correct[annotation][0] += new[0]
-                    test_correct[annotation][1] += new[1]
-                test_correct['tot'][0] += new_test_correct['tot'][0]
-                test_correct['tot'][1] += new_test_correct['tot'][1]
-                test_correct['tot_strict'][0] += new_test_correct['tot_strict'][0]
-                test_correct['tot_strict'][1] += new_test_correct['tot_strict'][1]
+            test_loss += loss.item()
+            new_test_correct = calc_correct(pred, target)
+            for annotation in ANNOTATIONS:
+                new = new_test_correct[annotation]
+                test_correct[annotation][0] += new[0]
+                test_correct[annotation][1] += new[1]
+            test_correct['tot'][0] += new_test_correct['tot'][0]
+            test_correct['tot'][1] += new_test_correct['tot'][1]
+            test_correct['tot_strict'][0] += new_test_correct['tot_strict'][0]
+            test_correct['tot_strict'][1] += new_test_correct['tot_strict'][1]
 
-                evaluations = class_evaluation(pred, target)
-                evaluation["true_positive"] += evaluations["true_positive"]
-                evaluation["false_positive"] += evaluations["false_positive"]
-                evaluation["true_negative"] += evaluations["true_negative"]
-                evaluation["false_negative"] += evaluations["false_negative"]
-                evaluation["positive"] += evaluations["positive"]
-                evaluation["negative"] += evaluations["negative"]
+            evaluations = class_evaluation(pred, target)
+            evaluation["true_positive"] += evaluations["true_positive"]
+            evaluation["false_positive"] += evaluations["false_positive"]
+            evaluation["true_negative"] += evaluations["true_negative"]
+            evaluation["false_negative"] += evaluations["false_negative"]
+            evaluation["positive"] += evaluations["positive"]
+            evaluation["negative"] += evaluations["negative"]
 
-                evaluations_by_annotation = class_evaluation_by_annotation(pred, target)
+            evaluations_by_annotation = class_evaluation_by_annotation(pred, target)
+            with open(test_file, 'a') as f:
                 f.write(json.dumps(evaluation_by_annotation))
                 f.write('\n')
 
@@ -497,6 +513,7 @@ def test(model: nn.Module, loss_function, device, test_loader, dev_losses: list[
                 f.write('\n')
                 f.write("------------------------")
                 f.write('\n')
+    with open(test_file, 'a') as f:
         f.write(str(dev_losses))
         f.write('\n')
         f.write(str(dev_accuracies))
